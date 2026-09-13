@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TestPortal — Online Examination</title>
+<!-- KaTeX for rendering LaTeX math in questions/options -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root{
+    /* JEE Mains inspired palette: white canvas, orange accent, green for answered/correct */
+    --orange:#ff6d1f;
+    --orange-dark:#e35a0f;
+    --orange-light:#fff1e8;
+    --navy:#1a2332;
+    --navy-light:#28374d;
+    --ink:#1c2128;
+    --muted:#6b7280;
+    --border:#e3e6ea;
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --green:#1a9c4a;
+    --green-light:#e8f8ee;
+    --red:#e0332c;
+    --red-light:#fdecec;
+    --mono: 'Consolas', 'IBM Plex Mono', 'Courier New', monospace;
+    --sans: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);}
+  a{color:inherit;}
+
+  /* ---- Top bar ---- */
+  .topbar{
+    background:var(--navy);color:#fff;padding:14px 28px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:20;
+    border-bottom:3px solid var(--orange);
+  }
+  .brand{font-weight:700;font-size:17px;letter-spacing:.2px;display:flex;align-items:center;gap:10px;}
+  .brand .mark{width:9px;height:9px;background:var(--orange);border-radius:1px;}
+  .topbar .meta{font-size:13px;color:#aab4c4;}
+
+  /* ---- Dashboard ---- */
+  .wrap{max-width:960px;margin:0 auto;padding:40px 24px 80px;}
+  .page-head{margin-bottom:28px;}
+  .page-head h1{font-size:22px;margin:0 0 6px;font-weight:700;}
+  .page-head p{margin:0;color:var(--muted);font-size:14px;}
+
+  .test-list{display:flex;flex-direction:column;border:1px solid var(--border);background:var(--panel);}
+  .test-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 20px;border-bottom:1px solid var(--border);
+  }
+  .test-row:last-child{border-bottom:none;}
+  .test-row h3{margin:0 0 4px;font-size:15px;font-weight:600;}
+  .test-row .tags{font-size:12.5px;color:var(--muted);display:flex;gap:14px;}
+  .test-row .tags span{display:flex;align-items:center;gap:5px;}
+  .btn{
+    border:1px solid var(--orange);background:var(--orange);color:#fff;
+    padding:9px 18px;font-size:13.5px;font-weight:700;cursor:pointer;
+    font-family:inherit;border-radius:3px;transition:background .15s,transform .05s;
+  }
+  .btn:hover{background:var(--orange-dark);}
+  .btn:active{transform:translateY(1px);}
+  .btn.ghost{background:transparent;color:var(--orange-dark);border-color:var(--orange);}
+  .btn.ghost:hover{background:var(--orange-light);}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:14px;}
+
+  /* ---- Modal (name entry) ---- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(18,39,68,.55);
+    display:none;align-items:center;justify-content:center;z-index:50;
+  }
+  .overlay.show{display:flex;}
+  .modal{background:#fff;padding:28px;width:100%;max-width:380px;border:1px solid var(--border);}
+  .modal h2{margin:0 0 4px;font-size:17px;}
+  .modal p{margin:0 0 18px;color:var(--muted);font-size:13.5px;}
+  .modal label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:var(--muted);}
+  .modal input{
+    width:100%;padding:10px 12px;border:1px solid var(--border);font-size:14px;
+    font-family:inherit;margin-bottom:16px;
+  }
+  .modal input:focus{outline:2px solid var(--orange);outline-offset:1px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+  /* ---- Exam screen ---- */
+  #exam-screen{display:none;}
+  .exam-topbar{
+    background:var(--navy);color:#fff;padding:12px 24px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;
+    border-bottom:3px solid var(--orange);
+  }
+  .exam-title{font-size:14px;font-weight:700;}
+  .exam-sub{font-size:12px;color:#aab4c4;}
+  .timer{
+    font-family:var(--mono);font-size:19px;font-weight:700;
+    background:#0c1420;padding:6px 14px;border:1px solid var(--orange);color:#ffb066;
+    border-radius:3px;
+  }
+  .timer.low{color:#ff9d95;border-color:var(--red);background:#2a1414;}
+
+  .exam-body{display:flex;max-width:1180px;margin:0 auto;align-items:flex-start;}
+  .qpane{flex:1;background:var(--panel);border-right:1px solid var(--border);min-height:calc(100vh - 54px);padding:30px 34px;}
+  .q-index{font-size:13px;color:#fff;margin-bottom:16px;font-weight:700;
+    background:var(--navy);display:inline-block;padding:6px 14px;border-radius:3px;border-left:4px solid var(--orange);}
+  .q-badges{display:flex;gap:8px;margin-bottom:18px;font-size:12px;font-weight:700;}
+  .badge{padding:4px 10px;border-radius:3px;}
+  .badge.plus{background:var(--green-light);color:var(--green);}
+  .badge.minus{background:var(--red-light);color:var(--red);}
+  .q-text{font-size:16.5px;line-height:1.75;margin-bottom:18px;}
+  .q-text .katex{font-size:1.08em;}
+  .q-image{max-width:100%;margin:6px 0 22px;text-align:left;}
+  .q-image img{max-width:100%;max-height:360px;border:1px solid var(--border);border-radius:4px;background:#fff;padding:6px;}
+  .options{display:flex;flex-direction:column;gap:12px;margin-bottom:36px;}
+  .option{
+    display:flex;align-items:flex-start;gap:12px;padding:14px 16px;
+    border:1.5px solid var(--border);cursor:pointer;font-size:15px;line-height:1.6;
+    border-radius:4px;transition:border-color .15s,background .15s;
+  }
+  .option:hover{border-color:var(--orange);background:var(--orange-light);}
+  .option.selected{border-color:var(--orange);background:var(--orange-light);}
+  .option .opt-text{flex:1;}
+  .option .opt-image{margin-top:8px;}
+  .option .opt-image img{max-width:100%;max-height:220px;border:1px solid var(--border);border-radius:4px;background:#fff;padding:4px;}
+  .option .radio{
+    width:19px;height:19px;border:1.5px solid #9aa5b1;border-radius:50%;flex:0 0 auto;margin-top:2px;
+    position:relative;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;color:#9aa5b1;
+  }
+  .option.selected .radio{border-color:var(--orange);background:var(--orange);color:#fff;}
+  .q-nav{display:flex;justify-content:space-between;gap:10px;}
+  .q-nav .left-btns, .q-nav .right-btns{display:flex;gap:10px;}
+  .btn.subtle{background:#fff;color:var(--ink);border:1px solid var(--border);}
+  .btn.subtle:hover{background:#f1f3f5;}
+  .btn.clear{color:var(--red);border-color:var(--red);background:#fff;}
+
+  .sidebar{width:270px;flex:0 0 270px;padding:24px 20px;position:sticky;top:54px;align-self:flex-start;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11.5px;color:var(--muted);margin-bottom:16px;}
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .dot.answered{background:var(--green);}
+  .dot.notanswered{background:#fff;border:1px solid #b8c0cb;}
+  .dot.current{background:var(--orange);}
+
+  .palette{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;}
+  .pnum{
+    aspect-ratio:1;border:1px solid var(--border);background:#fff;font-family:var(--mono);
+    font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);
+    border-radius:3px;font-weight:600;
+  }
+  .pnum.answered{background:var(--green);border-color:var(--green);color:#fff;}
+  .pnum.current{outline:2px solid var(--orange);outline-offset:1px;}
+
+  .submit-box{border-top:1px solid var(--border);padding-top:16px;}
+  .submit-box .btn{width:100%;background:var(--green);border-color:var(--green);}
+  .submit-box .btn:hover{background:#158a41;}
+
+  /* ---- Result screen ---- */
+  #result-screen{display:none;}
+  .result-hero{background:var(--navy);color:#fff;padding:44px 24px;text-align:center;border-bottom:3px solid var(--orange);}
+  .result-hero .score{font-family:var(--mono);font-size:46px;font-weight:700;color:var(--orange);}
+  .result-hero .label{color:#aab4c4;font-size:13px;margin-top:6px;}
+  .stat-row{display:flex;max-width:640px;margin:-26px auto 0;background:#fff;border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+  .stat{flex:1;text-align:center;padding:18px 10px;border-right:1px solid var(--border);}
+  .stat:last-child{border-right:none;}
+  .stat .n{font-family:var(--mono);font-size:20px;font-weight:700;}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .stat.correct .n{color:var(--green);}
+  .stat.wrong .n{color:var(--red);}
+
+  .review{max-width:720px;margin:36px auto 60px;padding:0 24px;}
+  .review h2{font-size:15px;margin-bottom:14px;}
+  .rev-item{border:1px solid var(--border);background:#fff;padding:16px 18px;margin-bottom:10px;border-radius:4px;}
+  .rev-item .q{font-size:14.5px;margin-bottom:8px;line-height:1.6;}
+  .rev-item .a{font-size:13px;color:var(--muted);margin-bottom:2px;}
+  .rev-item.correct{border-left:4px solid var(--green);}
+  .rev-item.incorrect{border-left:4px solid var(--red);}
+  .rev-item.skipped{border-left:4px solid #b8c0cb;}
+
+  @media (max-width:820px){
+    .exam-body{flex-direction:column;}
+    .sidebar{width:100%;flex:none;position:static;order:-1;padding:16px 20px;border-bottom:1px solid var(--border);background:#fff;}
+    .qpane{border-right:none;padding:22px 18px;}
+    .palette{grid-template-columns:repeat(8,1fr);}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="dashboard-screen">
+  <div class="topbar">
+    <div class="brand"><span class="mark"></span>TestPortal</div>
+    <div class="meta">Student Examination Console</div>
+  </div>
+  <div class="wrap">
+    <div class="page-head">
+      <h1>Available tests</h1>
+      <p>Select a test to begin. Once started, the timer cannot be paused.</p>
+    </div>
+    <div class="test-list" id="test-list">
+      <div class="empty">Loading tests…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Name entry modal -->
+<div class="overlay" id="start-overlay">
+  <div class="modal">
+    <h2 id="start-test-title">Start test</h2>
+    <p id="start-test-meta">—</p>
+    <label for="student-name">Your name</label>
+    <input id="student-name" placeholder="Enter your full name" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn subtle" id="cancel-start">Cancel</button>
+      <button class="btn" id="confirm-start">Begin test</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== EXAM SCREEN ===================== -->
+<div id="exam-screen">
+  <div class="exam-topbar">
+    <div>
+      <div class="exam-title" id="exam-title">—</div>
+      <div class="exam-sub" id="exam-sub">—</div>
+    </div>
+    <div class="timer" id="timer">00:00</div>
+  </div>
+  <div class="exam-body">
+    <div class="qpane">
+      <div class="q-index">Question <span id="q-current">1</span> of <span id="q-total">—</span></div>
+      <div class="q-badges" id="q-badges"></div>
+      <div class="q-text" id="q-text">Loading question…</div>
+      <div class="q-image" id="q-image" style="display:none;"></div>
+      <div class="options" id="q-options"></div>
+      <div class="q-nav">
+        <div class="left-btns">
+          <button class="btn subtle" id="btn-prev">← Previous</button>
+          <button class="btn clear" id="btn-clear">Clear response</button>
+        </div>
+        <div class="right-btns">
+          <button class="btn" id="btn-next">Save & Next →</button>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="legend">
+        <span><i class="dot answered"></i>Answered</span>
+        <span><i class="dot notanswered"></i>Not answered</span>
+        <span><i class="dot current"></i>Current</span>
+      </div>
+      <div class="palette" id="palette"></div>
+      <div class="submit-box">
+        <button class="btn" id="btn-submit">Submit test</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== RESULT SCREEN ===================== -->
+<div id="result-screen">
+  <div class="result-hero">
+    <div class="score" id="res-score">0</div>
+    <div class="label">YOUR SCORE OUT OF <span id="res-total">0</span></div>
+  </div>
+  <div class="stat-row">
+    <div class="stat correct"><div class="n" id="res-correct">0</div><div class="l">Correct</div></div>
+    <div class="stat wrong"><div class="n" id="res-wrong">0</div><div class="l">Incorrect</div></div>
+    <div class="stat"><div class="n" id="res-unattempted">0</div><div class="l">Unattempted</div></div>
+  </div>
+  <div class="review">
+    <h2>Answer review</h2>
+    <div id="review-list"></div>
+    <div style="text-align:center;margin-top:24px;">
+      <button class="btn ghost" id="btn-back-dashboard">Back to test list</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "/api";
+let currentTest = null;      // full test object with questions
+let studentName = "";
+let answers = {};            // {questionId: optionId}
+let currentQ = 0;
+let timerInterval = null;
+let secondsLeft = 0;
+
+const dashboardScreen = document.getElementById('dashboard-screen');
+const examScreen = document.getElementById('exam-screen');
+const resultScreen = document.getElementById('result-screen');
+
+function showScreen(el){
+  [dashboardScreen, examScreen, resultScreen].forEach(s => s.style.display = 'none');
+  el.style.display = 'block';
+}
+
+async function loadTests(){
+  const res = await fetch(`${API}/tests/`);
+  const data = await res.json();
+  const list = document.getElementById('test-list');
+  if(!data.tests.length){
+    list.innerHTML = '<div class="empty">No tests are available right now. Check back later.</div>';
+    return;
+  }
+  list.innerHTML = data.tests.map(t => `
+    <div class="test-row">
+      <div>
+        <h3>${escapeHtml(t.title)}</h3>
+        <div class="tags">
+          <span>📘 ${escapeHtml(t.subject || 'General')}</span>
+          <span>⏱ ${t.duration_minutes} min</span>
+          <span>${t.total_questions} questions</span>
+        </div>
+      </div>
+      <button class="btn" onclick="openStartModal(${t.id})">Start test</button>
+    </div>
+  `).join('');
+}
+
+let pendingTestId = null;
+function openStartModal(id){
+  pendingTestId = id;
+  fetch(`${API}/tests/`).then(r=>r.json()).then(d=>{
+    const t = d.tests.find(x=>x.id===id);
+    document.getElementById('start-test-title').textContent = t.title;
+    document.getElementById('start-test-meta').textContent = `${t.subject || 'General'} • ${t.duration_minutes} min • ${t.total_questions} questions`;
+  });
+  document.getElementById('start-overlay').classList.add('show');
+}
+document.getElementById('cancel-start').onclick = ()=> document.getElementById('start-overlay').classList.remove('show');
+
+document.getElementById('confirm-start').onclick = async ()=>{
+  const name = document.getElementById('student-name').value.trim();
+  if(!name){ alert('Please enter your name to continue.'); return; }
+  studentName = name;
+  document.getElementById('start-overlay').classList.remove('show');
+  await startTest(pendingTestId);
+};
+
+async function startTest(testId){
+  const res = await fetch(`${API}/tests/${testId}/`);
+  currentTest = await res.json();
+  answers = {};
+  currentQ = 0;
+  secondsLeft = currentTest.duration_minutes * 60;
+
+  document.getElementById('exam-title').textContent = currentTest.title;
+  document.getElementById('exam-sub').textContent = `${currentTest.subject || 'General'} • ${studentName}`;
+  document.getElementById('q-total').textContent = currentTest.questions.length;
+
+  renderPalette();
+  renderQuestion();
+  showScreen(examScreen);
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  updateTimerDisplay();
+  timerInterval = setInterval(()=>{
+    secondsLeft--;
+    updateTimerDisplay();
+    if(secondsLeft <= 0){
+      clearInterval(timerInterval);
+      submitTest(true);
+    }
+  }, 1000);
+}
+function updateTimerDisplay(){
+  const m = Math.floor(secondsLeft/60).toString().padStart(2,'0');
+  const s = (secondsLeft%60).toString().padStart(2,'0');
+  const el = document.getElementById('timer');
+  el.textContent = `${m}:${s}`;
+  el.classList.toggle('low', secondsLeft <= 60);
+}
+
+// ---- Math (KaTeX) rendering helper ----
+// Renders $...$ (inline) and $$...$$ (display) LaTeX inside any container,
+// leaving plain text untouched. Falls back silently if KaTeX hasn't loaded yet.
+function renderMathIn(el){
+  if(!el) return;
+  if(window.renderMathInElement){
+    try{
+      window.renderMathInElement(el, {
+        delimiters: [
+          {left:'$$', right:'$$', display:true},
+          {left:'\\[', right:'\\]', display:true},
+          {left:'$', right:'$', display:false},
+          {left:'\\(', right:'\\)', display:false}
+        ],
+        throwOnError:false
+      });
+    }catch(e){ /* ignore malformed LaTeX, keep raw text visible */ }
+  }
+}
+
+function optionLabel(i){ return String.fromCharCode(65 + i); } // A, B, C, D...
+
+function renderQuestion(){
+  const q = currentTest.questions[currentQ];
+  document.getElementById('q-current').textContent = currentQ + 1;
+
+  document.getElementById('q-badges').innerHTML = `
+    <span class="badge plus">+${q.marks} marks</span>
+    <span class="badge minus">−${q.negative_marks} wrong</span>
+  `;
+
+  const qTextEl = document.getElementById('q-text');
+  qTextEl.textContent = q.text;
+  renderMathIn(qTextEl);
+
+  const qImageEl = document.getElementById('q-image');
+  if(q.image){
+    qImageEl.innerHTML = `<img src="${escapeAttr(q.image)}" alt="Question figure">`;
+    qImageEl.style.display = 'block';
+  } else {
+    qImageEl.innerHTML = '';
+    qImageEl.style.display = 'none';
+  }
+
+  const optsHtml = q.options.map((o,i) => `
+    <div class="option ${answers[q.id]===o.id ? 'selected':''}" data-oid="${o.id}">
+      <span class="radio">${optionLabel(i)}</span>
+      <div style="flex:1;">
+        <div class="opt-text" data-opt-text="${o.id}">${escapeHtml(o.text)}</div>
+        ${o.image ? `<div class="opt-image"><img src="${escapeAttr(o.image)}" alt="Option figure"></div>` : ''}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('q-options').innerHTML = optsHtml;
+  document.querySelectorAll('[data-opt-text]').forEach(el => renderMathIn(el));
+  document.querySelectorAll('.option').forEach(el=>{
+    el.onclick = ()=>{
+      answers[q.id] = parseInt(el.dataset.oid);
+      renderQuestion();
+      renderPalette();
+    };
+  });
+  document.getElementById('btn-prev').disabled = currentQ === 0;
+  document.getElementById('btn-next').textContent = currentQ === currentTest.questions.length -1 ? 'Save' : 'Save & Next →';
+}
+
+function renderPalette(){
+  const html = currentTest.questions.map((q,i)=>{
+    const cls = ['pnum'];
+    if(answers[q.id] !== undefined) cls.push('answered');
+    if(i === currentQ) cls.push('current');
+    return `<div class="${cls.join(' ')}" onclick="goTo(${i})">${i+1}</div>`;
+  }).join('');
+  document.getElementById('palette').innerHTML = html;
+}
+function goTo(i){ currentQ = i; renderQuestion(); renderPalette(); }
+
+document.getElementById('btn-prev').onclick = ()=>{ if(currentQ>0){currentQ--; renderQuestion(); renderPalette();} };
+document.getElementById('btn-next').onclick = ()=>{
+  if(currentQ < currentTest.questions.length -1){ currentQ++; renderQuestion(); renderPalette(); }
+};
+document.getElementById('btn-clear').onclick = ()=>{
+  const q = currentTest.questions[currentQ];
+  delete answers[q.id];
+  renderQuestion(); renderPalette();
+};
+document.getElementById('btn-submit').onclick = ()=>{
+  if(confirm('Submit the test? You will not be able to change your answers after this.')){
+    clearInterval(timerInterval);
+    submitTest(false);
+  }
+};
+
+async function submitTest(auto){
+  const res = await fetch(`${API}/tests/${currentTest.id}/submit/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ student_name: studentName, answers })
+  });
+  const data = await res.json();
+  showResult(data, auto);
+}
+
+function showResult(data, auto){
+  document.getElementById('res-score').textContent = data.score;
+  document.getElementById('res-total').textContent = data.total_marks;
+  document.getElementById('res-correct').textContent = data.correct_count;
+  document.getElementById('res-wrong').textContent = data.wrong_count;
+  document.getElementById('res-unattempted').textContent = data.unattempted_count;
+  document.getElementById('review-list').innerHTML = data.review.map((r,i)=>`
+    <div class="rev-item ${r.is_correct ? 'correct' : (r.selected ? 'incorrect':'skipped')}">
+      <div class="q" data-rev-q="${i}">${escapeHtml(r.question)}</div>
+      <div class="a">Your answer: <span data-rev-a="${i}">${r.selected ? escapeHtml(r.selected) : '— not attempted'}</span></div>
+      ${!r.is_correct ? `<div class="a">Correct answer: <span data-rev-c="${i}">${escapeHtml(r.correct || '—')}</span></div>` : ''}
+    </div>
+  `).join('');
+  document.querySelectorAll('[data-rev-q], [data-rev-a], [data-rev-c]').forEach(el => renderMathIn(el));
+  showScreen(resultScreen);
+  if(auto){ setTimeout(()=>alert('Time is up — your test was submitted automatically.'), 200); }
+}
+
+document.getElementById('btn-back-dashboard').onclick = ()=>{
+  showScreen(dashboardScreen);
+  loadTests();
+};
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+loadTests();
+</script>
+</body>
+</html>
